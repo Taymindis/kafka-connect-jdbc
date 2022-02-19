@@ -62,6 +62,7 @@ public class BufferedRecords {
   private StatementBinder updateStatementBinder;
   private StatementBinder deleteStatementBinder;
   private boolean deletesInBatch = false;
+  private boolean requireIdentityInsert = false;
 
   public BufferedRecords(
       JdbcSinkConfig config,
@@ -157,7 +158,7 @@ public class BufferedRecords {
         );
       }
     }
-    
+
     // set deletesInBatch if schema value is not null
     if (isNull(record.value()) && config.deleteEnabled) {
       deletesInBatch = true;
@@ -265,8 +266,38 @@ public class BufferedRecords {
   }
 
   private String getInsertSql() throws SQLException {
+    String insertSql = getInsertSql_();
+
+    String fqdnTableName = getFqdnTableName(this.tableId);
+
+    if (requireIdentityInsert && this.config.identityInsertOnTables.contains(fqdnTableName)) {
+      insertSql = String.format("SET IDENTITY_INSERT %s ON;%s; SET IDENTITY_INSERT %s OFF;",
+              fqdnTableName, insertSql, fqdnTableName);
+    }
+    return insertSql;
+  }
+
+  private String getFqdnTableName(TableId tableId) {
+    StringBuilder n = new StringBuilder();
+    if (tableId.catalogName() != null) {
+      n.append(tableId.catalogName()).append('.');
+    }
+
+    if (tableId.schemaName() != null) {
+      n.append(tableId.schemaName()).append('.');
+    }
+
+    if (tableId.tableName() != null) {
+      n.append(tableId.tableName());
+    }
+
+    return n.toString();
+  }
+
+  private String getInsertSql_() throws SQLException {
     switch (config.insertMode) {
       case INSERT:
+        this.requireIdentityInsert = true;
         return dbDialect.buildInsertStatement(
             tableId,
             asColumns(fieldsMetadata.keyFieldNames),
@@ -274,6 +305,7 @@ public class BufferedRecords {
             dbStructure.tableDefinition(connection, tableId)
         );
       case UPSERT:
+        this.requireIdentityInsert = true;
         if (fieldsMetadata.keyFieldNames.isEmpty()) {
           throw new ConnectException(String.format(
               "Write to table '%s' in UPSERT mode requires key field names to be known, check the"

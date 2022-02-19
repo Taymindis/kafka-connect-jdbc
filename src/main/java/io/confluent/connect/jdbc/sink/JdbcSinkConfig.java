@@ -131,6 +131,7 @@ public class JdbcSinkConfig extends AbstractConfig {
       + " table, when possible.";
   private static final String BATCH_SIZE_DISPLAY = "Batch Size";
 
+  public static final String IDENTITY_ON_TABLES = "identity.on.tables";
   public static final String DELETE_ENABLED = "delete.enabled";
   private static final String DELETE_ENABLED_DEFAULT = "false";
   private static final String DELETE_ENABLED_DOC =
@@ -168,6 +169,12 @@ public class JdbcSinkConfig extends AbstractConfig {
 
   public static final String PK_FIELDS = "pk.fields";
   private static final String PK_FIELDS_DEFAULT = "";
+  private static final String IDENTITY_ON_TABLES_DEFAULT = "";
+  private static final String IDENTITY_ON_TABLES_DOC =
+          "List of comma-separated identity on table names. \n"
+          + "The runtime interpretation of this config";
+  private static final String IDENTITY_ON_TABLES_DISPLAY = "Identity On Tables";
+
   private static final String PK_FIELDS_DOC =
       "List of comma-separated primary key field names. The runtime interpretation of this config"
       + " depends on the ``pk.mode``:\n"
@@ -434,6 +441,16 @@ public class JdbcSinkConfig extends AbstractConfig {
           5,
           ConfigDef.Width.MEDIUM,
           DB_TIMEZONE_CONFIG_DISPLAY
+        ).define(
+          IDENTITY_ON_TABLES,
+          ConfigDef.Type.LIST,
+          IDENTITY_ON_TABLES_DEFAULT,
+          ConfigDef.Importance.MEDIUM,
+          IDENTITY_ON_TABLES_DOC,
+          DATAMAPPING_GROUP,
+          6,
+          ConfigDef.Width.LONG,
+          IDENTITY_ON_TABLES_DISPLAY
         )
         // DDL
         .define(
@@ -502,6 +519,7 @@ public class JdbcSinkConfig extends AbstractConfig {
   public final String tableNameFormat;
   public final int batchSize;
   public final boolean deleteEnabled;
+  public final List<String> identityInsertOnTables;
   public final int maxRetries;
   public final int retryBackoffMs;
   public final boolean autoCreate;
@@ -525,6 +543,7 @@ public class JdbcSinkConfig extends AbstractConfig {
     tableNameFormat = getString(TABLE_NAME_FORMAT).trim();
     batchSize = getInt(BATCH_SIZE);
     deleteEnabled = getBoolean(DELETE_ENABLED);
+    identityInsertOnTables = getList(IDENTITY_ON_TABLES);
     maxRetries = getInt(MAX_RETRIES);
     retryBackoffMs = getInt(RETRY_BACKOFF_MS);
     autoCreate = getBoolean(AUTO_CREATE);
