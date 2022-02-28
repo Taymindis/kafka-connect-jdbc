@@ -23,6 +23,7 @@ import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
@@ -121,7 +122,8 @@ public class JdbcSinkConfig extends AbstractConfig {
   public static final String RETRY_BACKOFF_MS = "retry.backoff.ms";
   private static final int RETRY_BACKOFF_MS_DEFAULT = 3000;
   private static final String RETRY_BACKOFF_MS_DOC =
-      "The time in milliseconds to wait following an error before a retry attempt is made.";
+      "The time in milliseconds to wait following an"
+        +  " error before a retry attempt is made.";
   private static final String RETRY_BACKOFF_MS_DISPLAY = "Retry Backoff (millis)";
 
   public static final String BATCH_SIZE = "batch.size";
@@ -132,6 +134,7 @@ public class JdbcSinkConfig extends AbstractConfig {
   private static final String BATCH_SIZE_DISPLAY = "Batch Size";
 
   public static final String IDENTITY_ON_TABLES = "identity.on.tables";
+  public static final String IDENTITY_ON_TABLES_PREFIX = "identity.on.tables.prefix";
   public static final String DELETE_ENABLED = "delete.enabled";
   private static final String DELETE_ENABLED_DEFAULT = "false";
   private static final String DELETE_ENABLED_DOC =
@@ -168,12 +171,22 @@ public class JdbcSinkConfig extends AbstractConfig {
   private static final String INSERT_MODE_DISPLAY = "Insert Mode";
 
   public static final String PK_FIELDS = "pk.fields";
+  public static final String PK_FIELDS_BY_TOPIC = "pk.fields.by.topic";
+  public static final String PK_FIELDS_BY_TOPIC_PREFIX = "pk.fields.by.topicPrefix";
   private static final String PK_FIELDS_DEFAULT = "";
+  private static final String PK_FIELDS_BY_TOPIC_DEFAULT = "";
+  private static final String PK_FIELDS_BY_TOPIC_PREFIX_DEFAULT = "";
+
   private static final String IDENTITY_ON_TABLES_DEFAULT = "";
+  private static final String IDENTITY_ON_TABLES_PREFIX_DEFAULT = "";
   private static final String IDENTITY_ON_TABLES_DOC =
           "List of comma-separated identity on table names. \n"
           + "The runtime interpretation of this config";
+  private static final String IDENTITY_ON_TABLES_PREFIX_DOC =
+          "The prefix of table name for all identity tables. \n";
   private static final String IDENTITY_ON_TABLES_DISPLAY = "Identity On Tables";
+
+  private static final String IDENTITY_ON_TABLES_PREFIX_DISPLAY = "Identity On Tables Prefix";
 
   private static final String PK_FIELDS_DOC =
       "List of comma-separated primary key field names. The runtime interpretation of this config"
@@ -190,6 +203,27 @@ public class JdbcSinkConfig extends AbstractConfig {
       + "    If empty, all fields from the value struct will be used, otherwise used to extract "
       + "the desired fields.";
   private static final String PK_FIELDS_DISPLAY = "Primary Key Fields";
+
+  private static final String PK_FIELDS_BY_TOPIC_DOC =
+      "List of comma-separated primary key field names and colon mapping by topic."
+      +    " The runtime interpretation of this config"
+      + " depends on the ``pk.mode``:\n"
+      + "``none``\n"
+      + "    Ignored as no fields are used as primary key in this mode.\n"
+      + "``kafka``\n"
+      + "    Must be a trio representing the Kafka coordinates, defaults to ``"
+      + StringUtils.join(DEFAULT_KAFKA_PK_NAMES, ",") + "`` if empty.\n"
+      + "``record_key``\n"
+      + "    If empty, all fields from the key struct will be used, otherwise used to extract the"
+      + " desired fields - for primitive key only a single field name must be configured.\n"
+      + "``record_value``\n"
+      + "    If empty, all fields from the value struct will be used, otherwise used to extract "
+      + "the desired fields.";
+  private static final String PK_FIELDS_BY_TOPIC_PREFIX_DOC =
+      "To give a topic prefix if topic prefix are all same";
+  private static final String PK_FIELDS_BY_TOPIC_DISPLAY = "Primary Key Fields By Topic";
+  private static final String PK_FIELDS_BY_TOPIC_PREFIX_DISPLAY =
+      "Primary Key Fields By Topic Prefix";
 
   public static final String PK_MODE = "pk.mode";
   private static final String PK_MODE_DEFAULT = "none";
@@ -451,6 +485,34 @@ public class JdbcSinkConfig extends AbstractConfig {
           6,
           ConfigDef.Width.LONG,
           IDENTITY_ON_TABLES_DISPLAY
+        ).define(
+          IDENTITY_ON_TABLES_PREFIX,
+          ConfigDef.Type.STRING,
+          IDENTITY_ON_TABLES_PREFIX_DEFAULT,
+          ConfigDef.Importance.MEDIUM,
+          IDENTITY_ON_TABLES_PREFIX_DOC,
+          DATAMAPPING_GROUP,
+          7,
+          ConfigDef.Width.LONG,
+          IDENTITY_ON_TABLES_PREFIX_DISPLAY
+        ).define(
+          PK_FIELDS_BY_TOPIC,
+          ConfigDef.Type.LIST,
+          PK_FIELDS_BY_TOPIC_DEFAULT,
+          ConfigDef.Importance.MEDIUM,
+          PK_FIELDS_BY_TOPIC_DOC,
+          DATAMAPPING_GROUP,
+          8,
+          ConfigDef.Width.LONG, PK_FIELDS_BY_TOPIC_DISPLAY
+        ).define(
+          PK_FIELDS_BY_TOPIC_PREFIX,
+          ConfigDef.Type.STRING,
+          PK_FIELDS_BY_TOPIC_PREFIX_DEFAULT,
+          ConfigDef.Importance.MEDIUM,
+          PK_FIELDS_BY_TOPIC_PREFIX_DOC,
+          DATAMAPPING_GROUP,
+          9,
+          ConfigDef.Width.LONG, PK_FIELDS_BY_TOPIC_PREFIX_DISPLAY
         )
         // DDL
         .define(
@@ -527,6 +589,9 @@ public class JdbcSinkConfig extends AbstractConfig {
   public final InsertMode insertMode;
   public final PrimaryKeyMode pkMode;
   public final List<String> pkFields;
+  public final Map<String, List<String>> pkFieldsByTopic;
+  public final String pkFieldsByTopicPrefix;
+  public final boolean isPkFieldByTopic;
   public final Set<String> fieldsWhitelist;
   public final String dialectName;
   public final TimeZone timeZone;
@@ -551,6 +616,25 @@ public class JdbcSinkConfig extends AbstractConfig {
     insertMode = InsertMode.valueOf(getString(INSERT_MODE).toUpperCase());
     pkMode = PrimaryKeyMode.valueOf(getString(PK_MODE).toUpperCase());
     pkFields = getList(PK_FIELDS);
+    pkFieldsByTopicPrefix = getString(PK_FIELDS_BY_TOPIC_PREFIX);
+
+    List<String> prePkFieldsByTopics = getList(PK_FIELDS_BY_TOPIC);
+
+    pkFieldsByTopic = new HashMap<>();
+
+    for (String pfbt:prePkFieldsByTopics) {
+      String[] topicAndPkfields = pfbt.split(":");
+
+      if (topicAndPkfields.length != 2) {
+        throw new ConfigException("Invalid PK fields and Topic mapping");
+      }
+
+      this.pkFieldsByTopic.put(pkFieldsByTopicPrefix.concat(topicAndPkfields[0]),
+          Collections.singletonList(topicAndPkfields[1]));
+    }
+
+    isPkFieldByTopic = !pkFieldsByTopic.isEmpty();
+
     dialectName = getString(DIALECT_NAME_CONFIG);
     fieldsWhitelist = new HashSet<>(getList(FIELDS_WHITELIST));
     String dbTimeZone = getString(DB_TIMEZONE_CONFIG);

@@ -26,7 +26,7 @@
     <groupId>io.confluent</groupId>
     <artifactId>kafka-connect-jdbc</artifactId>
     <packaging>jar</packaging>
-    <version>10.4.0-SNAPSHOT</version>
+    <version>10.3.3</version>
     <name>kafka-connect-jdbc</name>
     <organization>
         <name>Confluent, Inc.</name>
@@ -253,6 +253,12 @@
             <artifactId>zookeeper</artifactId>
             <version>${zookeeper.version}</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>connect-transforms</artifactId>
+            <version>6.0.0-ccs</version>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
 

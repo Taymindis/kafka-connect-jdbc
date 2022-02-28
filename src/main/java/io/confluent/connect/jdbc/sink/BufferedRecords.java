@@ -114,13 +114,25 @@ public class BufferedRecords {
           record.keySchema(),
           record.valueSchema()
       );
-      fieldsMetadata = FieldsMetadata.extract(
-          tableId.tableName(),
-          config.pkMode,
-          config.pkFields,
-          config.fieldsWhitelist,
-          schemaPair
-      );
+
+      if (config.isPkFieldByTopic) {
+        fieldsMetadata = FieldsMetadata.extract(
+            tableId.tableName(),
+            config.pkMode,
+            config.pkFieldsByTopic.get(record.topic()),
+            config.fieldsWhitelist,
+            schemaPair
+        );
+      } else {
+        fieldsMetadata = FieldsMetadata.extract(
+            tableId.tableName(),
+            config.pkMode,
+            config.pkFields,
+            config.fieldsWhitelist,
+            schemaPair
+        );
+      }
+
       dbStructure.createOrAmendIfNecessary(
           config,
           connection,
