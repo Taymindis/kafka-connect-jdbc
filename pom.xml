@@ -402,7 +402,7 @@
                 <executions>
                     <execution>
                         <id>validate</id>
-                        <phase>validate</phase>
+                        <phase>deploy</phase>
                         <configuration>
                             <suppressionsLocation>checkstyle/suppressions.xml</suppressionsLocation>
                         </configuration>
