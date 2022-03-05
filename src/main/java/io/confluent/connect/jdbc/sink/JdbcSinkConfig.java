@@ -46,6 +46,7 @@ import org.apache.kafka.common.config.types.Password;
 
 public class JdbcSinkConfig extends AbstractConfig {
 
+
   public enum InsertMode {
     INSERT,
     UPSERT,
@@ -582,6 +583,7 @@ public class JdbcSinkConfig extends AbstractConfig {
   public final int batchSize;
   public final boolean deleteEnabled;
   public final List<String> identityInsertOnTables;
+  private final String identityInsertOnTablePrefix;
   public final int maxRetries;
   public final int retryBackoffMs;
   public final boolean autoCreate;
@@ -608,7 +610,8 @@ public class JdbcSinkConfig extends AbstractConfig {
     tableNameFormat = getString(TABLE_NAME_FORMAT).trim();
     batchSize = getInt(BATCH_SIZE);
     deleteEnabled = getBoolean(DELETE_ENABLED);
-    identityInsertOnTables = getList(IDENTITY_ON_TABLES);
+    List<String> preIdentityInsertOnTables = getList(IDENTITY_ON_TABLES);
+    identityInsertOnTablePrefix = getString(IDENTITY_ON_TABLES_PREFIX);
     maxRetries = getInt(MAX_RETRIES);
     retryBackoffMs = getInt(RETRY_BACKOFF_MS);
     autoCreate = getBoolean(AUTO_CREATE);
@@ -621,6 +624,17 @@ public class JdbcSinkConfig extends AbstractConfig {
     List<String> prePkFieldsByTopics = getList(PK_FIELDS_BY_TOPIC);
 
     pkFieldsByTopic = new HashMap<>();
+
+
+    if(identityInsertOnTablePrefix.isEmpty()) {
+      identityInsertOnTables = preIdentityInsertOnTables;
+    } else {
+      identityInsertOnTables = new ArrayList<>();
+      for(String p:preIdentityInsertOnTables) {
+        identityInsertOnTables.add(identityInsertOnTablePrefix.concat(p));
+      }
+    }
+
 
     for (String pfbt:prePkFieldsByTopics) {
       String[] topicAndPkfields = pfbt.split(":");
