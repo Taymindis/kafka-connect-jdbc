@@ -1834,14 +1834,18 @@ public class GenericDatabaseDialect implements DatabaseDialect {
     String sqlType = getSqlType(f);
     builder.append(sqlType);
     if (f.defaultValue() != null) {
-      builder.append(" DEFAULT ");
-      formatColumnValue(
-          builder,
-          f.schemaName(),
-          f.schemaParameters(),
-          f.schemaType(),
-          f.defaultValue()
-      );
+      if("TEXT".equals(sqlType) && (this instanceof MySqlDatabaseDialect)) {
+        builder.append(" NULL");
+      } else {
+        builder.append(" DEFAULT ");
+        formatColumnValue(
+            builder,
+            f.schemaName(),
+            f.schemaParameters(),
+            f.schemaType(),
+            f.defaultValue()
+        );
+      }
     } else if (isColumnOptional(f)) {
       builder.append(" NULL");
     } else {
