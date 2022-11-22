@@ -26,6 +26,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collection;
+import java.util.Map;
+import java.util.Objects;
 
 import io.confluent.connect.jdbc.dialect.DatabaseDialectProvider.SubprotocolBasedProvider;
 import io.confluent.connect.jdbc.sink.metadata.SinkRecordField;
@@ -121,6 +123,15 @@ public class MySqlDatabaseDialect extends GenericDatabaseDialect {
       case BOOLEAN:
         return "TINYINT";
       case STRING:
+        Map<String, String> schemaParams = field.schemaParameters();
+
+        if(schemaParams != null && schemaParams.containsKey("__debezium.source.column.length")) {
+          long len = Long.parseLong(schemaParams.get("__debezium.source.column.length"));
+          if(len > 65535) {
+            return "LONGTEXT";
+          }
+        }
+
         return "TEXT";
       case BYTES:
         return "VARBINARY(1024)";

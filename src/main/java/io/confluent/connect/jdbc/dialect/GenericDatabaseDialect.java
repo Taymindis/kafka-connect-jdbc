@@ -1834,7 +1834,7 @@ public class GenericDatabaseDialect implements DatabaseDialect {
     String sqlType = getSqlType(f);
     builder.append(sqlType);
     if (f.defaultValue() != null) {
-      if("TEXT".equals(sqlType) && (this instanceof MySqlDatabaseDialect)) {
+      if((this instanceof MySqlDatabaseDialect) && ("LONGTEXT".equals(sqlType) || "TEXT".equals(sqlType))) {
         builder.append(" NULL");
       } else {
         builder.append(" DEFAULT ");
